@@ -35,7 +35,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from src.conformal import apply_threshold
@@ -44,7 +44,6 @@ from src.review_queue import append_review_row
 from src.table_utils import load_generic_table
 from src.verifier import verify_claim_df
 
-INDEX_HTML_PATH = PROJECT_ROOT / "index.html"
 CALIBRATION_PATH = PROJECT_ROOT / "calibration" / "conformal_thresholds.json"
 MAX_CSV_CHARS = 20_000
 MAX_ROWS = 200
@@ -105,23 +104,12 @@ class VerifyResponse(BaseModel):
     sent_to_review: bool
 
 
-@app.get("/", response_class=HTMLResponse)
-@app.get("/index.html", response_class=HTMLResponse)
-async def root():
-    # Vercel's static-asset auto-serving didn't pick up the root index.html
-    # alongside a Python function in this project layout, so the app serves
-    # its own frontend directly rather than depending on that detection.
-    return INDEX_HTML_PATH.read_text()
-
-
 @app.get("/api/health")
-@app.get("/health")
 async def health():
     return {"status": "ok", "llm_available": CLIENT.available(), "model": DEFAULT_MODEL}
 
 
 @app.post("/api/verify", response_model=VerifyResponse)
-@app.post("/verify", response_model=VerifyResponse)
 async def verify(req: VerifyRequest, request: Request):
     start = time.time()
     client_ip = request.client.host if request.client else "unknown"
@@ -206,20 +194,3 @@ async def verify(req: VerifyRequest, request: Request):
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request, exc):
     return JSONResponse(status_code=500, content={"detail": f"internal error: {exc}"})
-
-
-from starlette.exceptions import HTTPException as StarletteHTTPException
-
-
-@app.exception_handler(StarletteHTTPException)
-async def debug_404_handler(request, exc):
-    # TEMPORARY diagnostic: a bare {"detail": "Not Found"} on Vercel with no
-    # other information doesn't say whether the rewrite is forwarding the
-    # real request path to this app. Echo it back so we can see what this
-    # ASGI app actually received, then remove this once routing is confirmed.
-    return JSONResponse(status_code=exc.status_code, content={
-        "detail": exc.detail,
-        "path_seen_by_app": str(request.url.path),
-        "full_url_seen_by_app": str(request.url),
-        "registered_routes": [getattr(r, "path", str(r)) for r in app.routes],
-    })
