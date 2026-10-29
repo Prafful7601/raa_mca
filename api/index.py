@@ -206,3 +206,20 @@ async def verify(req: VerifyRequest, request: Request):
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request, exc):
     return JSONResponse(status_code=500, content={"detail": f"internal error: {exc}"})
+
+
+from starlette.exceptions import HTTPException as StarletteHTTPException
+
+
+@app.exception_handler(StarletteHTTPException)
+async def debug_404_handler(request, exc):
+    # TEMPORARY diagnostic: a bare {"detail": "Not Found"} on Vercel with no
+    # other information doesn't say whether the rewrite is forwarding the
+    # real request path to this app. Echo it back so we can see what this
+    # ASGI app actually received, then remove this once routing is confirmed.
+    return JSONResponse(status_code=exc.status_code, content={
+        "detail": exc.detail,
+        "path_seen_by_app": str(request.url.path),
+        "full_url_seen_by_app": str(request.url),
+        "registered_routes": [getattr(r, "path", str(r)) for r in app.routes],
+    })
