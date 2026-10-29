@@ -56,6 +56,27 @@ app.add_middleware(
     CORSMiddleware, allow_origins=["*"], allow_methods=["GET", "POST"], allow_headers=["*"],
 )
 
+
+class RestoreRewrittenPath:
+    """Vercel's Python runtime hands the function the rewrite's destination (/api/index.py) as the ASGI path, so
+    every route would 404. vercel.json therefore also passes the original sub-path as ?__path=$1; this restores
+    /api/<sub-path> before routing. Requests that already carry their real path (uvicorn, vercel dev) pass through."""
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http" and not scope["path"].startswith(("/api/health", "/api/verify")):
+            from urllib.parse import parse_qs
+            sub = parse_qs(scope.get("query_string", b"").decode()).get("__path", [""])[0].strip("/")
+            if sub:
+                path = "/api/" + sub
+                scope = dict(scope, path=path, raw_path=path.encode())
+        await self.app(scope, receive, send)
+
+
+app.add_middleware(RestoreRewrittenPath)
+
 CONFIG = load_config()
 CLIENT = LLMClient(CONFIG)
 DEFAULT_MODEL = CONFIG["models"]["default"]

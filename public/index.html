@@ -301,6 +301,7 @@ async function checkHealth() {
   try {
     const resp = await fetch(API_BASE + "/health");
     const data = await resp.json();
+    if (!resp.ok) { badge.textContent = `● API error ${resp.status}: ${data.detail ?? "health check failed"}`; return; }
     badge.textContent = data.llm_available
       ? `● live — model: ${data.model}`
       : `● API up, but LLM unavailable (model: ${data.model})`;
