@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Certified Numeric Verification</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --panel: #ffffff;
+    --ink: #1a1d23;
+    --muted: #6b7280;
+    --border: #e5e7eb;
+    --brand: #2952e3;
+    --brand-dark: #1d3fb8;
+    --true: #16a34a;
+    --false: #dc2626;
+    --abstain: #d97706;
+    --true-bg: #ecfdf3;
+    --false-bg: #fef2f2;
+    --abstain-bg: #fffbeb;
+    --mono: "SF Mono", "Menlo", "Consolas", monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+  }
+  header {
+    background: linear-gradient(135deg, var(--brand), var(--brand-dark));
+    color: white;
+    padding: 28px 40px;
+  }
+  header h1 { margin: 0 0 4px; font-size: 22px; font-weight: 700; }
+  header p { margin: 0; opacity: 0.9; font-size: 14px; }
+  .badge {
+    display: inline-block; background: rgba(255,255,255,0.18);
+    border-radius: 20px; padding: 3px 12px; font-size: 12px; margin-top: 10px;
+  }
+  main {
+    max-width: 1100px; margin: 0 auto; padding: 28px 24px 60px;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 24px;
+  }
+  @media (max-width: 860px) { main { grid-template-columns: 1fr; } }
+  .panel {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 12px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+  .panel h2 { font-size: 15px; margin: 0 0 14px; color: var(--ink); }
+  label { display: block; font-size: 12px; font-weight: 600; color: var(--muted);
+          text-transform: uppercase; letter-spacing: 0.03em; margin: 14px 0 6px; }
+  label:first-of-type { margin-top: 0; }
+  select, textarea, input[type=file] {
+    width: 100%; padding: 10px 12px; border: 1px solid var(--border);
+    border-radius: 8px; font-size: 14px; font-family: inherit; background: #fff;
+  }
+  textarea { resize: vertical; min-height: 60px; }
+  .examples { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .example-btn {
+    font-size: 12px; padding: 5px 10px; border-radius: 6px; border: 1px solid var(--border);
+    background: #f9fafb; cursor: pointer; color: var(--ink);
+  }
+  .example-btn:hover { background: #f0f1f3; }
+  .example-btn.true { border-color: #bbf7d0; color: var(--true); }
+  .example-btn.false { border-color: #fecaca; color: var(--false); }
+  table.data-table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-top: 6px; }
+  table.data-table th, table.data-table td { border: 1px solid var(--border); padding: 5px 8px; text-align: left; }
+  table.data-table th { background: #f9fafb; font-weight: 600; }
+  .verify-btn {
+    width: 100%; margin-top: 16px; padding: 12px; border: none; border-radius: 8px;
+    background: var(--brand); color: white; font-size: 15px; font-weight: 600; cursor: pointer;
+  }
+  .verify-btn:hover { background: var(--brand-dark); }
+  .verify-btn:disabled { background: #b7c3ee; cursor: default; }
+  .result-panel { grid-column: 1 / -1; }
+  .verdict-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .verdict-pill {
+    font-size: 22px; font-weight: 800; padding: 8px 20px; border-radius: 10px;
+    letter-spacing: 0.02em;
+  }
+  .verdict-pill.true { background: var(--true-bg); color: var(--true); }
+  .verdict-pill.false { background: var(--false-bg); color: var(--false); }
+  .verdict-pill.abstain { background: var(--abstain-bg); color: var(--abstain); }
+  .certified-tag {
+    font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 20px;
+  }
+  .certified-tag.yes { background: var(--true-bg); color: var(--true); }
+  .certified-tag.no { background: var(--abstain-bg); color: var(--abstain); }
+  .agreement-wrap { flex: 1; min-width: 220px; }
+  .agreement-label { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .agreement-bar-bg { background: #eef0f3; border-radius: 6px; height: 10px; overflow: hidden; }
+  .agreement-bar-fill { height: 100%; border-radius: 6px; background: var(--brand); transition: width 0.4s; }
+  .meta-row { display: flex; gap: 24px; margin-top: 14px; font-size: 13px; color: var(--muted); flex-wrap: wrap; }
+  .meta-row b { color: var(--ink); }
+  .review-banner {
+    margin-top: 14px; background: var(--abstain-bg); border: 1px solid #fde68a;
+    color: #92400e; padding: 10px 14px; border-radius: 8px; font-size: 13px;
+  }
+  .checks-grid { margin-top: 18px; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px,1fr)); gap: 10px; }
+  .check-card { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; background: #fbfbfc; }
+  .check-card .idx { font-size: 11px; color: var(--muted); font-weight: 700; margin-bottom: 4px; }
+  .check-card .verdict-tag { font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 10px; display: inline-block; }
+  .check-card .verdict-tag.TRUE { background: var(--true-bg); color: var(--true); }
+  .check-card .verdict-tag.FALSE { background: var(--false-bg); color: var(--false); }
+  .check-card .verdict-tag.INVALID, .check-card .verdict-tag.UNVERIFIABLE { background: #f3f4f6; color: var(--muted); }
+  .check-card pre { font-family: var(--mono); font-size: 10.5px; white-space: pre-wrap; word-break: break-word;
+                     margin: 6px 0 0; color: #374151; max-height: 140px; overflow-y: auto; }
+  .computed { font-family: var(--mono); font-size: 12px; margin-top: 6px; }
+  .status-line { font-size: 12px; color: var(--muted); margin-top: 10px; }
+  .status-line.err { color: var(--false); }
+  .spinner {
+    width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.4); border-top-color: white;
+    border-radius: 50%; display: inline-block; animation: spin 0.7s linear infinite; vertical-align: -3px; margin-right: 6px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  footer { text-align: center; font-size: 12px; color: var(--muted); padding: 20px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Certified Numeric Verification</h1>
+  <p>Guaranteed-error fact-checking of numeric claims over tables, with automated human escalation</p>
+  <span class="badge" id="api-status">checking API…</span>
+</header>
+
+<main>
+  <div class="panel">
+    <h2>1. Table</h2>
+    <label>Preloaded table</label>
+    <select id="table-select"></select>
+    <div id="table-preview" style="overflow-x:auto; margin-top:10px;"></div>
+    <label>Or upload your own CSV</label>
+    <input type="file" id="file-upload" accept=".csv">
+  </div>
+
+  <div class="panel">
+    <h2>2. Claim</h2>
+    <label>Claim text</label>
+    <textarea id="claim-input" placeholder="e.g. the total fee for MCA semester 1 is 95000"></textarea>
+    <label>Example claims for this table</label>
+    <div class="examples" id="example-buttons"></div>
+    <label>Target risk level (α) — strictness of the "certified" bar</label>
+    <select id="alpha-select">
+      <option value="0.02">0.02 (strict)</option>
+      <option value="0.05">0.05</option>
+      <option value="0.1" selected>0.10</option>
+      <option value="0.15">0.15</option>
+      <option value="0.2">0.20</option>
+      <option value="0.3">0.30 (lenient)</option>
+    </select>
+    <button class="verify-btn" id="verify-btn">Verify claim</button>
+    <div class="status-line" id="status-line"></div>
+  </div>
+
+  <div class="panel result-panel" id="result-panel" style="display:none;">
+    <h2>Result</h2>
+    <div class="verdict-row">
+      <div class="verdict-pill" id="verdict-pill">—</div>
+      <div class="certified-tag" id="certified-tag">—</div>
+      <div class="agreement-wrap">
+        <div class="agreement-label">Execution-agreement score (fraction of K=5 sampled checks that agree)</div>
+        <div class="agreement-bar-bg"><div class="agreement-bar-fill" id="agreement-fill" style="width:0%"></div></div>
+      </div>
+    </div>
+    <div class="meta-row">
+      <div>Claim ID: <b id="meta-claim-id">—</b></div>
+      <div>Latency: <b id="meta-latency">—</b></div>
+      <div>Reason: <b id="meta-reason">—</b></div>
+    </div>
+    <div class="review-banner" id="review-banner" style="display:none;">
+      ⚠️ Below the calibrated agreement threshold for this α, so this claim is routed to human review rather than
+      answered automatically — this is the paper's conformal risk-control guarantee working as intended, not an error.
+    </div>
+    <h2 style="margin-top:20px;">K generated checks &amp; executed results (the "show me the number" evidence)</h2>
+    <div class="checks-grid" id="checks-grid"></div>
+  </div>
+</main>
+
+<footer>Certified Numeric Verification — MCA Project, KIET Group of Institutions</footer>
+
+<script>
+const API_BASE = "/api";
+
+const TABLES = {
+  "Fee structure": {
+    csv: `program,semester,tuition_fee,hostel_fee,total_fee
+BCA,1,45000,30000,75000
+BCA,2,45000,30000,75000
+MCA,1,60000,35000,95000
+MCA,2,60000,35000,95000
+MCA,3,60000,35000,95000
+MCA,4,60000,35000,95000
+BTech CSE,1,80000,35000,115000
+BTech CSE,2,80000,35000,115000
+MBA,1,95000,40000,135000
+MBA,2,95000,40000,135000
+`,
+    examples: [
+      ["true", "the total fee for MCA semester 1 is 95000"],
+      ["false", "the total fee for MCA semester 1 is 99000"],
+      ["true", "the tuition fee for BTech CSE semester 1 is 80000"],
+    ],
+  },
+  "Semester results": {
+    csv: `roll_no,name,semester,sgpa,cgpa,backlogs
+MCA23001,Aatir Khan,3,8.2,8.0,0
+MCA23002,Prafful Gupta,3,9.1,8.9,0
+MCA23003,Prashant Singh,3,7.5,7.8,1
+MCA23004,Sana Sheikh,3,8.8,8.6,0
+MCA23005,Rohit Verma,3,6.9,7.1,2
+MCA23006,Neha Sharma,3,9.4,9.2,0
+MCA23007,Imran Ali,3,7.0,7.3,0
+MCA23008,Divya Rao,3,8.0,7.9,0
+MCA23009,Karan Mehta,3,5.8,6.5,3
+MCA23010,Fatima Ansari,3,8.6,8.4,0
+`,
+    examples: [
+      ["true", "prafful gupta has a cgpa of 8.9 in semester 3"],
+      ["false", "prafful gupta has a cgpa of 9.9 in semester 3"],
+      ["true", "karan mehta has 3 backlogs"],
+    ],
+  },
+  "Scholarship eligibility": {
+    csv: `roll_no,name,category,family_income,cgpa,attendance_percent,eligible
+MCA23001,Aatir Khan,General,450000,8.0,92,No
+MCA23002,Prafful Gupta,General,300000,8.9,96,Yes
+MCA23003,Prashant Singh,OBC,220000,7.8,88,Yes
+MCA23004,Sana Sheikh,General,600000,8.6,90,No
+MCA23005,Rohit Verma,SC,180000,7.1,80,Yes
+MCA23006,Neha Sharma,General,250000,9.2,98,Yes
+MCA23007,Imran Ali,OBC,320000,7.3,85,No
+MCA23008,Divya Rao,ST,150000,7.9,91,Yes
+MCA23009,Karan Mehta,General,700000,6.5,70,No
+MCA23010,Fatima Ansari,SC,200000,8.4,94,Yes
+`,
+    examples: [
+      ["true", "rohit verma is eligible for the scholarship"],
+      ["false", "aatir khan is eligible for the scholarship"],
+      ["true", "neha sharma has a family income of 250000"],
+    ],
+  },
+};
+
+let currentCsv = TABLES["Fee structure"].csv;
+
+function parseCsvPreview(csv, maxRows = 6) {
+  const lines = csv.trim().split("\n");
+  const header = lines[0].split(",");
+  const rows = lines.slice(1, maxRows + 1).map(l => l.split(","));
+  let html = "<table class='data-table'><thead><tr>" +
+    header.map(h => `<th>${h}</th>`).join("") + "</tr></thead><tbody>";
+  for (const r of rows) {
+    html += "<tr>" + r.map(c => `<td>${c}</td>`).join("") + "</tr>";
+  }
+  html += "</tbody></table>";
+  if (lines.length - 1 > maxRows) html += `<div style="font-size:11px;color:#9ca3af;margin-top:4px;">+ ${lines.length - 1 - maxRows} more rows</div>`;
+  return html;
+}
+
+function renderTable(name) {
+  const t = TABLES[name];
+  currentCsv = t.csv;
+  document.getElementById("table-preview").innerHTML = parseCsvPreview(t.csv);
+  const exWrap = document.getElementById("example-buttons");
+  exWrap.innerHTML = "";
+  for (const [kind, claim] of t.examples) {
+    const btn = document.createElement("button");
+    btn.className = "example-btn " + kind;
+    btn.textContent = claim;
+    btn.onclick = () => { document.getElementById("claim-input").value = claim; };
+    exWrap.appendChild(btn);
+  }
+}
+
+const select = document.getElementById("table-select");
+for (const name of Object.keys(TABLES)) {
+  const opt = document.createElement("option");
+  opt.value = name; opt.textContent = name;
+  select.appendChild(opt);
+}
+select.onchange = () => renderTable(select.value);
+renderTable("Fee structure");
+
+document.getElementById("file-upload").addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    currentCsv = ev.target.result;
+    document.getElementById("table-preview").innerHTML = parseCsvPreview(currentCsv);
+    document.getElementById("example-buttons").innerHTML = "<span style='font-size:12px;color:#9ca3af;'>(no examples for custom upload)</span>";
+  };
+  reader.readAsText(file);
+});
+
+async function checkHealth() {
+  const badge = document.getElementById("api-status");
+  try {
+    const resp = await fetch(API_BASE + "/health");
+    const data = await resp.json();
+    badge.textContent = data.llm_available
+      ? `● live — model: ${data.model}`
+      : `● API up, but LLM unavailable (model: ${data.model})`;
+  } catch (e) {
+    badge.textContent = "● API unreachable";
+  }
+}
+checkHealth();
+
+function verdictClass(v) {
+  if (v === "TRUE") return "true";
+  if (v === "FALSE") return "false";
+  return "abstain";
+}
+
+document.getElementById("verify-btn").addEventListener("click", async () => {
+  const claim = document.getElementById("claim-input").value.trim();
+  const alpha = parseFloat(document.getElementById("alpha-select").value);
+  const btn = document.getElementById("verify-btn");
+  const status = document.getElementById("status-line");
+  status.className = "status-line";
+
+  if (!claim) { status.textContent = "Enter a claim first."; status.className = "status-line err"; return; }
+
+  btn.disabled = true;
+  btn.innerHTML = "<span class='spinner'></span> Verifying…";
+  status.textContent = "Calling the verifier (K=5 sampled checks, executed with pandas)…";
+  document.getElementById("result-panel").style.display = "none";
+
+  try {
+    const resp = await fetch(API_BASE + "/verify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ claim, table_csv: currentCsv, alpha }),
+    });
+    const data = await resp.json();
+    if (!resp.ok) {
+      status.textContent = `API error ${resp.status}: ${data.detail}`;
+      status.className = "status-line err";
+    } else {
+      status.textContent = "";
+      renderResult(data);
+    }
+  } catch (e) {
+    status.textContent = "Request failed: " + e.message;
+    status.className = "status-line err";
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Verify claim";
+  }
+});
+
+function renderResult(data) {
+  const panel = document.getElementById("result-panel");
+  panel.style.display = "block";
+
+  const pill = document.getElementById("verdict-pill");
+  pill.textContent = data.raw_verdict;
+  pill.className = "verdict-pill " + verdictClass(data.raw_verdict);
+
+  const tag = document.getElementById("certified-tag");
+  tag.textContent = data.certified ? "✓ certified at this α" : "below threshold → review";
+  tag.className = "certified-tag " + (data.certified ? "yes" : "no");
+
+  document.getElementById("agreement-fill").style.width = (data.agreement_score * 100).toFixed(0) + "%";
+  document.getElementById("meta-claim-id").textContent = data.claim_id;
+  document.getElementById("meta-latency").textContent = data.latency_ms.toFixed(0) + " ms";
+  document.getElementById("meta-reason").textContent = data.reason;
+
+  document.getElementById("review-banner").style.display = data.sent_to_review ? "block" : "none";
+
+  const grid = document.getElementById("checks-grid");
+  grid.innerHTML = "";
+  (data.executed_checks || []).forEach((chk, i) => {
+    const card = document.createElement("div");
+    card.className = "check-card";
+    const result = chk.result || {};
+    const verdictTag = result.verdict || "INVALID";
+    const computed = result.computed_value !== undefined && result.computed_value !== null
+      ? `<div class="computed">computed = <b>${result.computed_value}</b></div>` : "";
+    card.innerHTML = `
+      <div class="idx">CHECK ${i + 1} <span class="verdict-tag ${verdictTag}">${verdictTag}</span></div>
+      <pre>${chk.check ? JSON.stringify(chk.check, null, 1) : "(no valid JSON generated)\n\n" + (chk.raw_text || "")}</pre>
+      ${computed}
+      ${result.error ? `<div style="color:#dc2626;font-size:11px;margin-top:4px;">${result.error}</div>` : ""}
+    `;
+    grid.appendChild(card);
+  });
+}
+</script>
+
+</body>
+</html>

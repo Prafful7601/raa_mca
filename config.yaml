@@ -1,0 +1,40 @@
+seed: 42
+
+# Paths are split deliberately: Vercel's deployed function filesystem is
+# read-only except /tmp, and /tmp is ephemeral (wiped on cold start, not
+# shared across instances). cache_dir/results_dir point at /tmp so the app
+# can write without crashing; nothing written there is meant to persist.
+paths:
+  cache_dir: /tmp/cnv-cache
+  results_dir: /tmp/cnv-results
+
+models:
+  default: gemini-3.5-flash-lite
+  available:
+    - name: gemini-3.5-flash-lite
+      provider: gemini
+      max_tokens: 1024
+      temperature_checks: 0.7
+      temperature_greedy: 0.0
+      input_per_mtok: 0.30
+      output_per_mtok: 2.50
+
+providers:
+  gemini:
+    api_key_env: GEMINI_API_KEY
+
+llm:
+  max_concurrency: 5
+  max_concurrency_per_provider: {}
+  max_retries: 4
+  base_backoff_seconds: 1.0
+  max_backoff_seconds: 15.0
+  request_timeout_seconds: 25
+  request_timeout_seconds_per_provider: {}
+  min_interval_seconds:
+    gemini: 0.0
+
+experiment:
+  k_checks: 5
+  numeric_tolerance: 1.0e-6
+  alphas: [0.02, 0.05, 0.10, 0.15, 0.20, 0.30]
