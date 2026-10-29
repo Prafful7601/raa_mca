@@ -35,7 +35,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, Field
 
 from src.conformal import apply_threshold
@@ -44,6 +44,7 @@ from src.review_queue import append_review_row
 from src.table_utils import load_generic_table
 from src.verifier import verify_claim_df
 
+INDEX_HTML_PATH = PROJECT_ROOT / "index.html"
 CALIBRATION_PATH = PROJECT_ROOT / "calibration" / "conformal_thresholds.json"
 MAX_CSV_CHARS = 20_000
 MAX_ROWS = 200
@@ -102,6 +103,15 @@ class VerifyResponse(BaseModel):
     reason: str
     latency_ms: float
     sent_to_review: bool
+
+
+@app.get("/", response_class=HTMLResponse)
+@app.get("/index.html", response_class=HTMLResponse)
+async def root():
+    # Vercel's static-asset auto-serving didn't pick up the root index.html
+    # alongside a Python function in this project layout, so the app serves
+    # its own frontend directly rather than depending on that detection.
+    return INDEX_HTML_PATH.read_text()
 
 
 @app.get("/api/health")
