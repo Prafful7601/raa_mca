@@ -9,8 +9,24 @@ paths:
   results_dir: /tmp/cnv-results
 
 models:
-  default: gemini-3.5-flash-lite
+  # Switched the live default from gemini-3.5-flash-lite to Groq's free tier
+  # after the Gemini project's prepaid credits were exhausted (confirmed via
+  # a live 402 RESOURCE_EXHAUSTED) and a Meta Model API key hit
+  # billing_not_configured on its team. Groq's free tier authenticated and
+  # served real completions with no billing error. Gemini stays listed/
+  # configured below so flipping the default back is a one-line change once
+  # its project has credit again.
+  default: qwen/qwen3.8-27b
   available:
+    - name: qwen/qwen3.8-27b
+      provider: groq
+      max_tokens: 1024
+      temperature_checks: 0.7
+      temperature_greedy: 0.0
+      # Groq free-tier pricing shown in its own model listing (checked
+      # 2026-11-22); not billed unless the account's free quota is exceeded.
+      input_per_mtok: 0.80
+      output_per_mtok: 4.00
     - name: gemini-3.5-flash-lite
       provider: gemini
       max_tokens: 1024
@@ -20,6 +36,8 @@ models:
       output_per_mtok: 2.50
 
 providers:
+  groq:
+    api_key_env: GROQ_API_KEY
   gemini:
     api_key_env: GEMINI_API_KEY
 
@@ -33,6 +51,7 @@ llm:
   request_timeout_seconds_per_provider: {}
   min_interval_seconds:
     gemini: 0.0
+    groq: 0.0
 
 experiment:
   k_checks: 5

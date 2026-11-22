@@ -6,3 +6,4 @@ openpyxl==3.1.5
 PyYAML==6.0.3
 python-dotenv==1.2.1
 google-genai==1.47.0
+httpx==0.28.1

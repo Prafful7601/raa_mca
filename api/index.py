@@ -45,6 +45,7 @@ from src.table_utils import load_generic_table
 from src.verifier import verify_claim_df
 
 CALIBRATION_PATH = PROJECT_ROOT / "calibration" / "conformal_thresholds.json"
+CALIBRATED_MODEL = "gemini-3.5-flash-lite"  # the only model the bundled thresholds are valid for
 MAX_CSV_CHARS = 20_000
 MAX_ROWS = 200
 MAX_COLS = 40
@@ -161,7 +162,7 @@ async def verify(req: VerifyRequest, request: Request):
         raise HTTPException(status_code=422, detail=f"could not parse table: {e}")
 
     if not CLIENT.available():
-        raise HTTPException(status_code=503, detail="LLM unavailable: GEMINI_API_KEY is not set on this deployment")
+        raise HTTPException(status_code=503, detail=f"LLM unavailable: {DEFAULT_MODEL}'s API key is not set on this deployment")
 
     try:
         result = await verify_claim_df(CLIENT, DEFAULT_MODEL, req.claim, df, k=DEFAULT_K,
@@ -171,16 +172,25 @@ async def verify(req: VerifyRequest, request: Request):
 
     agreement = result.get("agreement_score", 0.0)
     raw_verdict = result["verdict"]
-    thresholds = _load_thresholds().get("ours_agreement", {})
-    lam = thresholds.get(str(req.alpha))
 
-    if lam is None:
-        lam = 1.0
-        reason_suffix = " (no calibrated threshold for this alpha: conservative fallback requires full agreement)"
+    calibration_valid = CALIBRATED_MODEL is None or DEFAULT_MODEL == CALIBRATED_MODEL
+    if not calibration_valid:
+        # The bundled thresholds were fit to CALIBRATED_MODEL's own
+        # agreement-score/error-rate relationship (Section "Conformal
+        # calibration" of the paper); applying them to a different model's
+        # scores has no statistical basis, so this deployment never claims
+        # "certified" while running an uncalibrated model -- it only shows
+        # the raw verdict and agreement score, regardless of how high that
+        # score is (a fallback lambda=1.0 would wrongly still pass a claim
+        # with perfect 1.0 agreement, which is the common case).
+        certified = False
+        reason_suffix = f" (no calibration for {DEFAULT_MODEL}: thresholds were fit to {CALIBRATED_MODEL} only)"
     else:
-        reason_suffix = f" (alpha={req.alpha}, calibrated lambda={lam:.3f})"
-
-    certified = bool(apply_threshold([agreement], lam)[0]) if raw_verdict != "UNVERIFIABLE" else False
+        thresholds = _load_thresholds().get("ours_agreement", {})
+        lam = thresholds.get(str(req.alpha), 1.0)
+        reason_suffix = (f" (alpha={req.alpha}, calibrated lambda={lam:.3f})" if str(req.alpha) in thresholds
+                          else " (no calibrated threshold for this alpha: conservative fallback requires full agreement)")
+        certified = bool(apply_threshold([agreement], lam)[0]) if raw_verdict != "UNVERIFIABLE" else False
     sent_to_review = not certified
 
     computed_values = [c["result"].get("computed_value") for c in result.get("executed_checks", [])
@@ -188,9 +198,12 @@ async def verify(req: VerifyRequest, request: Request):
 
     if certified:
         reason = "certified: agreement >= calibrated threshold" + reason_suffix
+    elif raw_verdict == "UNVERIFIABLE":
+        reason = "no valid executed check (UNVERIFIABLE)"
+    elif not calibration_valid:
+        reason = "not certified" + reason_suffix
     else:
-        reason = ("below calibrated confidence at this alpha" + reason_suffix
-                   if raw_verdict != "UNVERIFIABLE" else "no valid executed check (UNVERIFIABLE)")
+        reason = "below calibrated confidence at this alpha" + reason_suffix
         try:
             append_review_row(REVIEW_QUEUE_PATH, claim_id, req.claim, table_id, raw_verdict,
                                agreement, result.get("executed_checks", []), reason)

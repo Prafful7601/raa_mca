@@ -2,7 +2,8 @@
 provider+model+prompt hash), retry/exponential backoff, and bounded
 concurrency. Adding a new model to config.yaml's models.available list
 requires no code changes here as long as its `provider` is one of the
-providers implemented below (currently `anthropic`, `gemini`)."""
+providers implemented below (currently `anthropic`, `gemini`, `ollama`,
+`groq`)."""
 from __future__ import annotations
 import asyncio
 import hashlib
@@ -103,6 +104,43 @@ class _GeminiBackend:
         return {"text": text, "input_tokens": input_tokens, "output_tokens": output_tokens}
 
 
+class _GroqBackend:
+    """OpenAI-compatible chat-completions API (api.groq.com), used via raw
+    httpx rather than a dedicated SDK -- the interface is a single POST."""
+    def __init__(self, api_key: Optional[str]):
+        import httpx
+        self._httpx = httpx
+        self._api_key = api_key
+        self.client = httpx.AsyncClient(base_url="https://api.groq.com/openai/v1") if api_key else None
+
+    def available(self) -> bool:
+        return self.client is not None
+
+    @property
+    def retryable_exceptions(self):
+        h = self._httpx
+        return (h.HTTPStatusError, h.TransportError, asyncio.TimeoutError)
+
+    async def call(self, model: str, prompt: str, system: str, temperature: float, max_tokens: int, timeout: float) -> dict:
+        messages = []
+        if system:
+            messages.append({"role": "system", "content": system})
+        messages.append({"role": "user", "content": prompt})
+        resp = await asyncio.wait_for(
+            self.client.post(
+                "/chat/completions",
+                headers={"Authorization": f"Bearer {self._api_key}"},
+                json={"model": model, "messages": messages, "temperature": temperature, "max_tokens": max_tokens},
+            ),
+            timeout=timeout,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        text = data["choices"][0]["message"].get("content") or ""
+        usage = data.get("usage", {})
+        return {"text": text, "input_tokens": usage.get("prompt_tokens", 0), "output_tokens": usage.get("completion_tokens", 0)}
+
+
 class _OllamaBackend:
     """Local inference via Ollama -- no API key, no external rate limit.
     Throughput is bounded only by local hardware."""
@@ -138,7 +176,7 @@ class _OllamaBackend:
         return {"text": text, "input_tokens": resp.prompt_eval_count or 0, "output_tokens": resp.eval_count or 0}
 
 
-_BACKENDS = {"anthropic": _AnthropicBackend, "gemini": _GeminiBackend, "ollama": _OllamaBackend}
+_BACKENDS = {"anthropic": _AnthropicBackend, "gemini": _GeminiBackend, "ollama": _OllamaBackend, "groq": _GroqBackend}
 
 
 class LLMClient:

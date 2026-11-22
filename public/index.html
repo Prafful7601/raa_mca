@@ -171,7 +171,7 @@
       <div>Reason: <b id="meta-reason">—</b></div>
     </div>
     <div class="review-banner" id="review-banner" style="display:none;">
-      ⚠️ Below the calibrated agreement threshold for this α, so this claim is routed to human review rather than
+      ⚠️ Not certified at this α (see Reason above for why), so this claim is routed to human review rather than
       answered automatically — this is the paper's conformal risk-control guarantee working as intended, not an error.
     </div>
     <h2 style="margin-top:20px;">K generated checks &amp; executed results (the "show me the number" evidence)</h2>
@@ -363,7 +363,7 @@ function renderResult(data) {
   pill.className = "verdict-pill " + verdictClass(data.raw_verdict);
 
   const tag = document.getElementById("certified-tag");
-  tag.textContent = data.certified ? "✓ certified at this α" : "below threshold → review";
+  tag.textContent = data.certified ? "✓ certified at this α" : "not certified → review";
   tag.className = "certified-tag " + (data.certified ? "yes" : "no");
 
   document.getElementById("agreement-fill").style.width = (data.agreement_score * 100).toFixed(0) + "%";
